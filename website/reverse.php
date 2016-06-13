@@ -41,21 +41,7 @@
 		$oPlaceLookup->setIncludeNameDetails(getParamBool('namedetails', false));
 
 		$aPlace = $oPlaceLookup->lookupPlace($aLookup);
-
-		$oPlaceLookup->setIncludePolygonAsPoints($bAsPoints);
-		$oPlaceLookup->setIncludePolygonAsText($bAsText);
-		$oPlaceLookup->setIncludePolygonAsGeoJSON($bAsGeoJSON);
-		$oPlaceLookup->setIncludePolygonAsKML($bAsKML);
-		$oPlaceLookup->setIncludePolygonAsSVG($bAsSVG);
-		$oPlaceLookup->setPolygonSimplificationThreshold($fThreshold);
-
-		$fRadius = $fDiameter = getResultDiameter($aPlace);
-		$aOutlineResult = $oPlaceLookup->getOutlines($aPlace['place_id'], $aPlace['lon'], $aPlace['lat'], $fRadius);
-
-		if ($aOutlineResult)
-		{
-			$aPlace = array_merge($aPlace, $aOutlineResult);
-		}
+		
 		return $aPlace;
 	}
 
