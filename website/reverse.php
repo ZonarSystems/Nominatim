@@ -21,6 +21,31 @@
 	$oDB =& getDB();
 	ini_set('memory_limit', '200M');
 
+	function get_place_from_lookup($aLookup, $oDB){
+		$bAsPoints = false;
+		$bAsGeoJSON = (boolean)isset($_GET['polygon_geojson']) && $_GET['polygon_geojson'];
+		$bAsKML = (boolean)isset($_GET['polygon_kml']) && $_GET['polygon_kml'];
+		$bAsSVG = (boolean)isset($_GET['polygon_svg']) && $_GET['polygon_svg'];
+		$bAsText = (boolean)isset($_GET['polygon_text']) && $_GET['polygon_text'];
+
+		// Polygon simplification threshold (optional)
+		$fThreshold = 0.0;
+		if (isset($_GET['polygon_threshold'])) $fThreshold = (float)$_GET['polygon_threshold'];
+
+		$oPlaceLookup = new PlaceLookup($oDB);
+		$aLanguagePref = getPreferredLanguages();
+
+		$oPlaceLookup->setLanguagePreference($aLanguagePref);
+		$oPlaceLookup->setIncludeAddressDetails(getParamBool('addressdetails', true));
+		$oPlaceLookup->setIncludeExtraTags(getParamBool('extratags', false));
+		$oPlaceLookup->setIncludeNameDetails(getParamBool('namedetails', false));
+
+		$aPlace = $oPlaceLookup->lookupPlace($aLookup);
+		
+		return $aPlace;
+	}
+
+
 	// Format for output
 	$sOutputFormat = 'xml';
 	if (isset($_GET['format']) && ( $_GET['format'] == 'html' || $_GET['format'] == 'xml' || $_GET['format'] == 'json' || $_GET['format'] == 'jsonv2'))
@@ -56,23 +81,38 @@
 
 	if ($aLookup)
 	{
-		$oPlaceLookup = new PlaceLookup($oDB);
-		$oPlaceLookup->setLanguagePreference($aLangPrefOrder);
-		$oPlaceLookup->setIncludeAddressDetails(getParamBool('addressdetails', true));
-		$oPlaceLookup->setIncludeExtraTags(getParamBool('extratags', false));
-		$oPlaceLookup->setIncludeNameDetails(getParamBool('namedetails', false));
-
-		$aPlace = $oPlaceLookup->lookupPlace($aLookup);
+		$aPlace = get_place_from_lookup($aLookup, $oDB);
 	}
 	else
 	{
 		$aPlace = null;
 	}
-
+	// Locations is a url encoded request parameter that contains json of the following format:
+	// {"locations":[{"lat":30, "lon":-90}, {"lat":40, "lon":50}]}
+	if(isset($_GET['locations'])){
+		$locJson = $_GET['locations'];
+		$aPlaces = array();
+		if(json_decode($locJson) != NULL){
+			$locs = json_decode($locJson);
+			for($i = 0; $i < count($locs->locations); $i++){
+				$oReverseGeocode = new ReverseGeocode($oDB);
+				$oReverseGeocode->setLanguagePreference($aLangPrefOrder);
+				$oReverseGeocode->setLatLon($locs->locations[$i]->lat, $locs->locations[$i]->lon);
+				$aLookup = $oReverseGeocode->lookup();
+				if($aLookup){
+					$aPlaces[$i] = get_place_from_lookup($aLookup, $oDB);
+				}
+				else{
+					$aPlaces[$i] = null;
+				}
+			}
+		}
+	}
 
 	if (CONST_Debug)
 	{
 		var_dump($aPlace);
+		if(isset($aPlaces)) var_dump($aPlaces);
 		exit;
 	}
 
